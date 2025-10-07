@@ -32,3 +32,14 @@ yarn lint
 ## Learn more
 
 For more information, see the [Hyperlane documentation](https://v3.hyperlane.xyz).
+
+---
+
+## How to run locally
+
+1. Install deps
+   ```bash
+   corepack enable
+   corepack prepare yarn@1.22.22 --activate
+   yarn install
+
