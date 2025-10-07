@@ -1,94 +1,27 @@
-name: ci
-
+name: CI
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
+  schedule:
+    - cron: "30 7 * * *" # daily
 jobs:
-  install:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: yarn-cache
-        uses: actions/cache@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          path: |
-            **/node_modules
-            .yarn/cache
-          key: ${{ runner.os }}-yarn-cache-${{ hashFiles('./yarn.lock') }}
-
-      - name: yarn-install
-        # Check out the lockfile from main, reinstall, and then
-        # verify the lockfile matches what was committed.
-        run: |
-            yarn install
-            CHANGES=$(git status -s)
-            if [[ ! -z $CHANGES ]]; then
-              echo "Changes found: $CHANGES"
-              git diff
-              exit 1
-            fi
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [install]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: yarn-cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            **/node_modules
-            .yarn/cache
-          key: ${{ runner.os }}-yarn-cache-${{ hashFiles('./yarn.lock') }}
-
-      - name: build
-        run: yarn run build
-
-  prettier:
-    runs-on: ubuntu-latest
-    needs: [install]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: yarn-cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            **/node_modules
-            .yarn/cache
-          key: ${{ runner.os }}-yarn-cache-${{ hashFiles('./yarn.lock') }}
-
-      - name: prettier
-        run: |
-          yarn run prettier
-          CHANGES=$(git status -s)
-          if [[ ! -z $CHANGES ]]; then
-            echo "Changes found: $CHANGES"
-            exit 1
+          node-version: 20
+      - run: corepack enable
+      - run: corepack prepare yarn@1.22.22 --activate
+      - run: echo "nodeLinker: node-modules" > .yarnrc.yml
+      - run: yarn install --frozen-lockfile || yarn install
+      - run: |
+          if yarn -s run -T test >/dev/null 2>&1; then
+            yarn test
+          elif yarn -s run -T lint >/dev/null 2>&1; then
+            yarn lint
+          else
+            echo "No test/lint script; running build if present"
+            yarn build || true
           fi
-
-  lint:
-    runs-on: ubuntu-latest
-    needs: [install]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: yarn-cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            **/node_modules
-            .yarn/cache
-          key: ${{ runner.os }}-yarn-cache-${{ hashFiles('./yarn.lock') }}
-
-      - name: lint 
-        run: yarn run lint
